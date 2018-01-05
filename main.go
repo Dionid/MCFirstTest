@@ -20,7 +20,7 @@ var (
 
 type TreeElSt struct {
 	Name string
-	SizeInB []byte
+	SizeInB *int64
 	Inner TreeSt
 }
 
@@ -42,9 +42,10 @@ func (this *TreeSt) Fill(path string) {
 		if info.IsDir() {
 			TreeEl.Inner = TreeSt{}
 		} else {
-			b := make([]byte, 8)
-			binary.LittleEndian.PutUint64(b, uint64(info.Size()))
-			TreeEl.SizeInB = b
+			//b := make([]byte, 8)
+			//binary.LittleEndian.PutUint64(b, uint64(info.Size()))
+			size := info.Size()
+			TreeEl.SizeInB = &size
 		}
 
 		var CurTree TreeSt
@@ -74,11 +75,23 @@ func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, tabC int, 
 	}
 	out.Write(HorLineSymbol)
 	out.Write([]byte(data.Name))
+	if data.SizeInB != nil {
+		out.Write([]byte(" ("))
+		if *data.SizeInB == 0 {
+			out.Write([]byte("empty"))
+		}  else {
+			b := make([]byte, 8)
+			binary.LittleEndian.PutUint64(b, uint64(*data.SizeInB))
+			fmt.Print(uint64(*data.SizeInB))
+			//out.Write(b)
+			out.Write([]byte("b"))
+		}
+		out.Write([]byte(")"))
+	}
 	out.Write(NewLineSymbol)
 	if data.Inner != nil {
 		if !end {
 			vertLPosArr = append(vertLPosArr, tabC-1)
-			//fmt.Println(vertLPosArr)
 		}
 		tL := len(data.Inner)
 		cL := 0
@@ -138,7 +151,7 @@ func oldDirTree(out io.Writer, path string, printFiles bool) error {
 
 		out.Write([]byte("│"))
 
-		splitedPath := strings.Split(path, "/")
+		splitedPath := strings.Split(path, string(os.PathSeparator))
 		splitedPathL := len(splitedPath)
 
 		if splitedPathL > 1 {
