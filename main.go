@@ -5,39 +5,117 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"fmt"
+	"encoding/binary"
 )
 
 var (
 	NewLineSymbol = []byte("\n")
-	TabSymbol = []byte("───")
+	TabSymbol = []byte("     ")
+	HorLineSymbol = []byte("────")
+	VertLineSymbol = []byte("│")
 )
 
 type TreeElSt struct {
 	Name string
-	SizeInB int
-	Inner *TreeSt
+	SizeInB []byte
+	Inner TreeSt
 }
 
 func (this *TreeElSt) Fill() {
 
 }
 
-type TreeSt []TreeElSt
+type TreeSt map[string]*TreeElSt
 
 
 func (this *TreeSt) FillLvl() {
 
 }
 
-func (this *TreeSt) Display(out io.Writer) {
-	//for k, v := range *this {
-	//
-	//	out.Write(NewLineSymbol)
+func (this *TreeSt) Display(out io.Writer, what TreeSt, tabC int) {
+	//for _, v := range what {
+	//	for i := 0; i < tabC; i++ {
+	//		out.Write(TabSymbol)
+	//	}
+	//	if v.Inner != nil {
+	//		fmt.Print(v.Name)
+	//		fmt.Print(" ")
+	//		fmt.Println(v.Inner)
+	//		this.Display(out, v.Inner, tabC + 1)
+	//	} else {
+	//		fmt.Println(v.Name)
+	//	}
 	//}
+
+	for _, v := range what {
+		out.Write(VertLineSymbol)
+		for i := 0; i < tabC; i++ {
+			out.Write(TabSymbol)
+		}
+		out.Write(VertLineSymbol)
+		out.Write(HorLineSymbol)
+		if v.Inner != nil {
+			out.Write([]byte(v.Name))
+			out.Write(NewLineSymbol)
+			this.Display(out, v.Inner, tabC+1)
+		} else {
+			out.Write([]byte(v.Name + " "))
+			//out.Write(v.SizeInB)
+			out.Write(NewLineSymbol)
+		}
+	}
 }
 
 
 func dirTree(out io.Writer, path string, printFiles bool) error {
+
+	Tree := TreeSt{}
+
+	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		if string(path[0]) == "." {
+			return nil
+		}
+
+		splitedPath := strings.Split(path, "/")
+		splitedPathL := len(splitedPath)
+
+		TreeEl := TreeElSt{}
+		TreeEl.Name = info.Name()
+
+		if info.IsDir() {
+			TreeEl.Inner = TreeSt{}
+		} else {
+			b := make([]byte, 8)
+			binary.LittleEndian.PutUint64(b, uint64(info.Size()))
+			TreeEl.SizeInB = b
+		}
+
+		var CurTree TreeSt
+
+		if splitedPathL == 1 {
+			CurTree = Tree
+		} else {
+			tmpTree := Tree
+			for i := 0; i < splitedPathL-1; i++ {
+				tmpTree = tmpTree[splitedPath[i]].Inner
+			}
+			CurTree = tmpTree
+		}
+
+		CurTree[TreeEl.Name] = &TreeEl
+
+		return nil
+	})
+
+	Tree.Display(out, Tree, 0)
+
+	fmt.Println("Done")
+
+	return nil
+}
+
+func oldDirTree(out io.Writer, path string, printFiles bool) error {
 	//info, err := os.Lstat(path)
 	//
 	//if err != nil {
@@ -97,7 +175,6 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 
 	return nil
 }
-
 
 func main() {
 	out := os.Stdout
