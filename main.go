@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"fmt"
-	"encoding/binary"
+	"strconv"
 )
 
 var (
@@ -81,11 +81,8 @@ func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, prefix []b
 		if *data.SizeInB == 0 {
 			out.Write([]byte("empty"))
 		}  else {
-			b := make([]byte, 8)
-			binary.LittleEndian.PutUint64(b, uint64(*data.SizeInB))
-			fmt.Print(uint64(*data.SizeInB))
-			//out.Write(b)
-			out.Write([]byte("b"))
+			// TODO: REWORK
+			out.Write([]byte(strconv.Itoa(int(*data.SizeInB)) + "b"))
 		}
 		out.Write([]byte(")"))
 	}
