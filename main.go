@@ -67,7 +67,8 @@ func (this *TreeSt) Fill(path string) {
 }
 
 
-func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, tabC int, vertLPosArr []int) {
+func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, prefix []byte) {
+	out.Write(prefix)
 	if end {
 		out.Write(EndVertLineSymbol)
 	} else {
@@ -90,22 +91,15 @@ func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, tabC int, 
 	}
 	out.Write(NewLineSymbol)
 	if data.Inner != nil {
-		if !end {
-			vertLPosArr = append(vertLPosArr, tabC-1)
-		}
 		tL := len(data.Inner)
 		cL := 0
+		if !end {
+			prefix = append(prefix, VertLineSymbol...)
+		}
+		prefix = append(prefix, TabSymbol...)
 		for _, v := range data.Inner {
 			cL++
-			for i := 0; i < tabC; i++ {
-				for _, vlpV := range vertLPosArr {
-					if i == vlpV {
-						out.Write(VertLineSymbol)
-					}
-				}
-				out.Write(TabSymbol)
-			}
-			this.DisplayEl(out, *v, cL == tL, tabC+1, vertLPosArr)
+			this.DisplayEl(out, *v, cL == tL, prefix)
 		}
 	}
 }
@@ -115,7 +109,7 @@ func (this *TreeSt) Display(out io.Writer) {
 	cL := 0
 	for _, v := range *this {
 		cL++
-		this.DisplayEl(out, *v, cL == tL, 1, []int{})
+		this.DisplayEl(out, *v, cL == tL, []byte{})
 	}
 }
 
