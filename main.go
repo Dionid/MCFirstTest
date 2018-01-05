@@ -11,9 +11,11 @@ import (
 
 var (
 	NewLineSymbol = []byte("\n")
-	TabSymbol = []byte("     ")
-	HorLineSymbol = []byte("────")
+	TabSymbol = []byte("    ")
+	HorLineSymbol = []byte("───")
 	VertLineSymbol = []byte("│")
+	PointVertLineSymbol = []byte("├")
+	EndVertLineSymbol = []byte("└")
 )
 
 type TreeElSt struct {
@@ -22,56 +24,10 @@ type TreeElSt struct {
 	Inner TreeSt
 }
 
-func (this *TreeElSt) Fill() {
-
-}
-
 type TreeSt map[string]*TreeElSt
 
 
-func (this *TreeSt) FillLvl() {
-
-}
-
-func (this *TreeSt) Display(out io.Writer, what TreeSt, tabC int) {
-	//for _, v := range what {
-	//	for i := 0; i < tabC; i++ {
-	//		out.Write(TabSymbol)
-	//	}
-	//	if v.Inner != nil {
-	//		fmt.Print(v.Name)
-	//		fmt.Print(" ")
-	//		fmt.Println(v.Inner)
-	//		this.Display(out, v.Inner, tabC + 1)
-	//	} else {
-	//		fmt.Println(v.Name)
-	//	}
-	//}
-
-	for _, v := range what {
-		out.Write(VertLineSymbol)
-		for i := 0; i < tabC; i++ {
-			out.Write(TabSymbol)
-		}
-		out.Write(VertLineSymbol)
-		out.Write(HorLineSymbol)
-		if v.Inner != nil {
-			out.Write([]byte(v.Name))
-			out.Write(NewLineSymbol)
-			this.Display(out, v.Inner, tabC+1)
-		} else {
-			out.Write([]byte(v.Name + " "))
-			//out.Write(v.SizeInB)
-			out.Write(NewLineSymbol)
-		}
-	}
-}
-
-
-func dirTree(out io.Writer, path string, printFiles bool) error {
-
-	Tree := TreeSt{}
-
+func (this *TreeSt) Fill(path string) {
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if string(path[0]) == "." {
 			return nil
@@ -94,9 +50,9 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 		var CurTree TreeSt
 
 		if splitedPathL == 1 {
-			CurTree = Tree
+			CurTree = *this
 		} else {
-			tmpTree := Tree
+			tmpTree := *this
 			for i := 0; i < splitedPathL-1; i++ {
 				tmpTree = tmpTree[splitedPath[i]].Inner
 			}
@@ -107,8 +63,56 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 
 		return nil
 	})
+}
 
-	Tree.Display(out, Tree, 0)
+
+func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, tabC int, vertLPosArr []int) {
+	if end {
+		out.Write(EndVertLineSymbol)
+	} else {
+		out.Write(PointVertLineSymbol)
+	}
+	out.Write(HorLineSymbol)
+	out.Write([]byte(data.Name))
+	out.Write(NewLineSymbol)
+	if data.Inner != nil {
+		if !end {
+			vertLPosArr = append(vertLPosArr, tabC-1)
+			//fmt.Println(vertLPosArr)
+		}
+		tL := len(data.Inner)
+		cL := 0
+		for _, v := range data.Inner {
+			cL++
+			for i := 0; i < tabC; i++ {
+				for _, vlpV := range vertLPosArr {
+					if i == vlpV {
+						out.Write(VertLineSymbol)
+					}
+				}
+				out.Write(TabSymbol)
+			}
+			this.DisplayEl(out, *v, cL == tL, tabC+1, vertLPosArr)
+		}
+	}
+}
+
+func (this *TreeSt) Display(out io.Writer) {
+	tL := len(*this)
+	cL := 0
+	for _, v := range *this {
+		cL++
+		this.DisplayEl(out, *v, cL == tL, 1, []int{})
+	}
+}
+
+
+func dirTree(out io.Writer, path string, printFiles bool) error {
+
+	Tree := TreeSt{}
+
+	Tree.Fill(path)
+	Tree.Display(out)
 
 	fmt.Println("Done")
 
