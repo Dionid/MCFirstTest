@@ -5,13 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"fmt"
 	"strconv"
+	"sort"
 )
 
 var (
 	NewLineSymbol = []byte("\n")
-	TabSymbol = []byte("    ")
+	TabSymbol = []byte("	")
 	HorLineSymbol = []byte("───")
 	VertLineSymbol = []byte("│")
 	PointVertLineSymbol = []byte("├")
@@ -20,32 +20,39 @@ var (
 
 type TreeElSt struct {
 	Name string
-	SizeInB *int64
+	IsDir bool
+	SizeInB int64
 	Inner TreeSt
 }
 
 type TreeSt map[string]*TreeElSt
 
-
-func (this *TreeSt) Fill(path string) {
-	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		if string(path[0]) == "." {
+func (this *TreeSt) Fill(rootPath string, printFiles bool) {
+	filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+		if path == rootPath || string(path[0]) == "." {
 			return nil
 		}
 
-		splitedPath := strings.Split(path, "/")
+		splitedPath := strings.Split(path, string(os.PathSeparator))
 		splitedPathL := len(splitedPath)
+
+		if splitedPath[0] == rootPath {
+			splitedPath = splitedPath[1:]
+			splitedPathL -= 1
+		}
 
 		TreeEl := TreeElSt{}
 		TreeEl.Name = info.Name()
 
 		if info.IsDir() {
+			TreeEl.IsDir = true
 			TreeEl.Inner = TreeSt{}
 		} else {
-			//b := make([]byte, 8)
-			//binary.LittleEndian.PutUint64(b, uint64(info.Size()))
-			size := info.Size()
-			TreeEl.SizeInB = &size
+			if !printFiles {
+				return nil
+			}
+			TreeEl.IsDir = false
+			TreeEl.SizeInB = info.Size()
 		}
 
 		var CurTree TreeSt
@@ -66,7 +73,6 @@ func (this *TreeSt) Fill(path string) {
 	})
 }
 
-
 func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, prefix []byte) {
 	out.Write(prefix)
 	if end {
@@ -76,13 +82,13 @@ func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, prefix []b
 	}
 	out.Write(HorLineSymbol)
 	out.Write([]byte(data.Name))
-	if data.SizeInB != nil {
+	if !data.IsDir {
 		out.Write([]byte(" ("))
-		if *data.SizeInB == 0 {
+		if data.SizeInB == 0 {
 			out.Write([]byte("empty"))
 		}  else {
 			// TODO: REWORK
-			out.Write([]byte(strconv.Itoa(int(*data.SizeInB)) + "b"))
+			out.Write([]byte(strconv.Itoa(int(data.SizeInB)) + "b"))
 		}
 		out.Write([]byte(")"))
 	}
@@ -94,95 +100,88 @@ func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, prefix []b
 			prefix = append(prefix, VertLineSymbol...)
 		}
 		prefix = append(prefix, TabSymbol...)
-		for _, v := range data.Inner {
+
+		var keys []string
+		for k := range data.Inner {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, v := range keys {
 			cL++
-			this.DisplayEl(out, *v, cL == tL, prefix)
+			this.DisplayEl(out, *data.Inner[v], cL == tL, prefix)
 		}
 	}
 }
 
 func (this *TreeSt) Display(out io.Writer) {
+
+	var keys []string
+	for k := range *this {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	tL := len(*this)
 	cL := 0
-	for _, v := range *this {
+	for _, v := range keys {
 		cL++
-		this.DisplayEl(out, *v, cL == tL, []byte{})
+		this.DisplayEl(out, *(*this)[v], cL == tL, []byte{})
 	}
 }
 
 
 func dirTree(out io.Writer, path string, printFiles bool) error {
-
 	Tree := TreeSt{}
 
-	Tree.Fill(path)
+	Tree.Fill(path, printFiles)
 	Tree.Display(out)
 
-	fmt.Println("Done")
-
 	return nil
 }
 
-func oldDirTree(out io.Writer, path string, printFiles bool) error {
-	//info, err := os.Lstat(path)
-	//
-	//if err != nil {
-	//	return nil
-	//}
-	//
-	//out.Write([]byte(info.Name()))
-	//out.Write(NewLineSymbol)
-
-	prevSplitedL := 0
-
-	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		if path == "." {
-			return nil
-		}
-
-		out.Write([]byte("│"))
-
-		splitedPath := strings.Split(path, string(os.PathSeparator))
-		splitedPathL := len(splitedPath)
-
-		if splitedPathL > 1 {
-			for i := 0; i < splitedPathL-1; i++ {
-				out.Write([]byte("    "))
-			}
-			if splitedPathL < prevSplitedL {
-				out.Write([]byte("└"))
-			} else {
-				out.Write([]byte("│"))
-			}
-			out.Write([]byte(TabSymbol))
-		} else {
-			out.Write([]byte(TabSymbol))
-		}
-
-		prevSplitedL = splitedPathL
-
-		out.Write([]byte(info.Name() + " "))
-
-		if !info.IsDir() {
-			if printFiles {
-				//fmt.Print(info.Size())
-				//b := make([]byte, 8)
-				//binary.LittleEndian.PutUint64(b, uint64(info.Size()))
-				//out.Write(b)
-				//fmt.Print(uint64(info.Size()))
-				//out.Write([]byte("b"))
-			} else {
-				return nil
-			}
-		}
-
-		out.Write(NewLineSymbol)
-
-		return nil
-	})
-
-	return nil
-}
+//func oldDirTree(out io.Writer, path string, printFiles bool) error {
+//
+//	var (
+//		curPrefix []byte
+//		curFolder = ""
+//	)
+//
+//	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+//		if string(path[0]) == "." {
+//			return nil
+//		}
+//
+//		out.Write(curPrefix)
+//
+//		if end {
+//			out.Write(EndVertLineSymbol)
+//		} else {
+//			out.Write(PointVertLineSymbol)
+//		}
+//		out.Write(HorLineSymbol)
+//		out.Write([]byte(info.Name()))
+//
+//		splitedPath := strings.Split(path, string(os.PathSeparator))
+//		splitedPathL := len(splitedPath)
+//
+//
+//		if info.IsDir() {
+//
+//		} else {
+//
+//		}
+//
+//		if curFolder == "" {
+//
+//		}
+//
+//
+//		return nil
+//	})
+//
+//	return nil
+//}
 
 func main() {
 	out := os.Stdout
