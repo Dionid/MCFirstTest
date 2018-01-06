@@ -7,7 +7,6 @@ import (
 	"strings"
 	"strconv"
 	"sort"
-	"fmt"
 )
 
 var (
@@ -29,7 +28,7 @@ type TreeElSt struct {
 
 type TreeSt map[string]*TreeElSt
 
-func (this *TreeSt) Fill(rootPath string, printFiles bool) {
+func (this *TreeSt) Fill(rootPath string, printFiles bool) error {
 
 	splitedRootPath := strings.Split(rootPath, string(os.PathSeparator))
 
@@ -45,26 +44,34 @@ func (this *TreeSt) Fill(rootPath string, printFiles bool) {
 		splitedRootPath = splitedRootPath[1:]
 	}
 
-	fmt.Println(splitedRootPath)
+	//fmt.Println(rootPath)
+	//fmt.Println(splitedRootPath)
 
-	filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
 		// We don't process rootPath, because we don't need it by task
 		if path == rootPath {
 			return nil
 		}
 
-		if string(path[0]) == "." {
-			return nil
-		}
-
-		fmt.Println(rootPath)
-		fmt.Println(path)
+		//fmt.Println(rootPath)
+		//fmt.Println(path)
 
 		splitedPath := strings.Split(path, string(os.PathSeparator))[len(splitedRootPath):]
 		splitedPathL := len(splitedPath)
 
-		fmt.Println(splitedPath)
+		//fmt.Println(splitedPath)
+
+		// This done not to show all hidden files
+		// TODO: add flag for hidden files
+		for _, v := range splitedPath {
+			if string(v[0]) == "." {
+				return nil
+			}
+		}
 
 		TreeEl := TreeElSt{}
 		TreeEl.Name = info.Name()
@@ -75,7 +82,7 @@ func (this *TreeSt) Fill(rootPath string, printFiles bool) {
 		} else {
 			// If file check for print files
 			if !printFiles {
-				// If we dont print files than continue
+				// If we don't need to print files than continue
 				return nil
 			}
 			TreeEl.IsDir = false
@@ -142,7 +149,6 @@ func (this *TreeSt) DisplayEl(out io.Writer, data TreeElSt, end bool, prefix []b
 }
 
 func (this *TreeSt) Display(out io.Writer) {
-
 	var keys []string
 	for k := range *this {
 		keys = append(keys, k)
@@ -150,6 +156,12 @@ func (this *TreeSt) Display(out io.Writer) {
 	sort.Strings(keys)
 
 	tL := len(*this)
+
+	if tL == 0 {
+		out.Write([]byte("Directory is empty"))
+		out.Write(NewLineSymbol)
+	}
+
 	cL := 0
 	for _, v := range keys {
 		cL++
@@ -161,7 +173,11 @@ func (this *TreeSt) Display(out io.Writer) {
 func dirTree(out io.Writer, path string, printFiles bool) error {
 	Tree := TreeSt{}
 
-	Tree.Fill(path, printFiles)
+	if err := Tree.Fill(path, printFiles); err != nil {
+		out.Write([]byte(err.Error()))
+		out.Write(NewLineSymbol)
+		return nil
+	}
 	Tree.Display(out)
 
 	return nil
