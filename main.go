@@ -7,6 +7,7 @@ import (
 	"strings"
 	"strconv"
 	"sort"
+	"fmt"
 )
 
 var (
@@ -18,6 +19,7 @@ var (
 	EndVertLineSymbol = []byte("└")
 )
 
+
 type TreeElSt struct {
 	Name string
 	IsDir bool
@@ -28,18 +30,41 @@ type TreeElSt struct {
 type TreeSt map[string]*TreeElSt
 
 func (this *TreeSt) Fill(rootPath string, printFiles bool) {
+
+	splitedRootPath := strings.Split(rootPath, string(os.PathSeparator))
+
+	// If user ended rootPath with `rootPath/` than we need to remove last empty element from array
+	if splitedRootPath[len(splitedRootPath)-1] == "" {
+		splitedRootPath = splitedRootPath[:len(splitedRootPath)-1]
+	}
+
+	// This done because `filepath.Walk` works with paths that doesn't have `./` in the beginning
+	// Ex: `./testdata` => `testdata`
+	if splitedRootPath[0] == "." {
+		rootPath = string(rootPath[2:])
+		splitedRootPath = splitedRootPath[1:]
+	}
+
+	fmt.Println(splitedRootPath)
+
 	filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-		if path == rootPath || string(path[0]) == "." {
+
+		// We don't process rootPath, because we don't need it by task
+		if path == rootPath {
 			return nil
 		}
 
-		splitedPath := strings.Split(path, string(os.PathSeparator))
+		if string(path[0]) == "." {
+			return nil
+		}
+
+		fmt.Println(rootPath)
+		fmt.Println(path)
+
+		splitedPath := strings.Split(path, string(os.PathSeparator))[len(splitedRootPath):]
 		splitedPathL := len(splitedPath)
 
-		if splitedPath[0] == rootPath {
-			splitedPath = splitedPath[1:]
-			splitedPathL -= 1
-		}
+		fmt.Println(splitedPath)
 
 		TreeEl := TreeElSt{}
 		TreeEl.Name = info.Name()
@@ -48,7 +73,9 @@ func (this *TreeSt) Fill(rootPath string, printFiles bool) {
 			TreeEl.IsDir = true
 			TreeEl.Inner = TreeSt{}
 		} else {
+			// If file check for print files
 			if !printFiles {
+				// If we dont print files than continue
 				return nil
 			}
 			TreeEl.IsDir = false
@@ -139,49 +166,6 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 
 	return nil
 }
-
-//func oldDirTree(out io.Writer, path string, printFiles bool) error {
-//
-//	var (
-//		curPrefix []byte
-//		curFolder = ""
-//	)
-//
-//	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-//		if string(path[0]) == "." {
-//			return nil
-//		}
-//
-//		out.Write(curPrefix)
-//
-//		if end {
-//			out.Write(EndVertLineSymbol)
-//		} else {
-//			out.Write(PointVertLineSymbol)
-//		}
-//		out.Write(HorLineSymbol)
-//		out.Write([]byte(info.Name()))
-//
-//		splitedPath := strings.Split(path, string(os.PathSeparator))
-//		splitedPathL := len(splitedPath)
-//
-//
-//		if info.IsDir() {
-//
-//		} else {
-//
-//		}
-//
-//		if curFolder == "" {
-//
-//		}
-//
-//
-//		return nil
-//	})
-//
-//	return nil
-//}
 
 func main() {
 	out := os.Stdout
